@@ -1,0 +1,22 @@
+{
+  "name": "learning",
+  "version": "1.0.1",
+  "description": "Description projet",
+  "keywords": [
+    "STAGING"
+  ],
+  "license": "ISC",
+  "author": "Aina Jh",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "nodemon": "^3.1.9"
+  }
+}
