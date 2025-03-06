@@ -1,9 +1,13 @@
 import { isNotNull } from "../utils/error.js";
 import dbPromise from "../config/db.js"
 
+import { createToken, decryptPassword, hashPassword } from "../utils/func.js";
+
 
 export const createUser = async (req, res) => {
     const { name, email, password, role_id } = req.body;
+    const passwordHash = await hashPassword(password)
+
 
     try {
         // Vérification de la présence des données nécessaires
@@ -16,11 +20,10 @@ export const createUser = async (req, res) => {
 
         // Établit la connexion à la base de données
         const connection = await dbPromise;
-
         // Effectue une requête pour insérer un nouvel utilisateur
         const [result] = await connection.query(
-            'INSERT INTO users (name, email, password,role_id) VALUES (?, ?, ?, ?)',
-            [name, email, password, role_id]
+            'INSERT INTO users (name, email, password ,role_id) VALUES (?, ?, ?, ?)',
+            [name, email, `${passwordHash}`, role_id]
         );
 
         // Vérifier si l'insertion a réussi
@@ -38,7 +41,7 @@ export const createUser = async (req, res) => {
 
     } catch (error) {
         // Si une erreur se produit, renvoyer une réponse d'erreur
-
+        console.log(error)
         return res.status(500).json({
             success: false,
             message: "Erreur interne du serveur",
@@ -81,7 +84,7 @@ export const updateUser = async (req, res) => {
 
     try {
         // Vérification que les champs sont présents dans le corps de la requête
-        if (isNotNull(name) || isNotNull(email)  || isNotNull(role_id)) {
+        if (isNotNull(name) || isNotNull(email) || isNotNull(role_id)) {
             return res.status(400).json({
                 success: false,
                 message: "Tous les champs (nom, email, mot de passe, role) sont requis"
@@ -94,7 +97,7 @@ export const updateUser = async (req, res) => {
 
         // Effectuer la mise à jour
         const [result] = await connection.query(
-            `UPDATE users SET name = ?, email = ?, ${password  ? 'password = ? ,' : '' } role_id = ? WHERE id = ?`,
+            `UPDATE users SET name = ?, email = ?, ${password ? 'password = ? ,' : ''} role_id = ? WHERE id = ?`,
             [name, email, password, role_id, id]
         );
 
@@ -150,6 +153,61 @@ export const deleteUser = async (req, res) => {
         }
 
     } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Erreur interne du serveur",
+            error: error.message
+        });
+    }
+};
+
+export const signIn = async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        // Vérification de la présence des données nécessaires
+        if (isNotNull(email) && isNotNull(password)) {
+            return res.status(400).json({
+                success: false,
+                message: "Tous les champs email et mot de passe sont requis"
+            });
+        }
+
+        // Établit la connexion à la base de données
+        const connection = await dbPromise;
+        const [user] = await connection.query('SELECT * FROM users us INNER JOIN roles r ON r.id = us.role_id WHERE us.email = ? ', [email]);
+
+        if (user.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Utilisateur inconnu"
+            });
+        } else {
+            const checkPass = await decryptPassword(password, user[0].password);
+            if (checkPass) {
+                console.log(user[0])
+                const { password, ...result } = user[0];
+                const token = await createToken(result);
+                res.status(200).send({
+                    token,
+                    message: `Connection avec succès! Bonjour ${user[0].name}`,
+                    error: false,
+                    data: result,
+                });
+            } else {
+                res.status(404).send({
+                    error: true,
+                    message: "Mot de passe incorrect",
+                });
+            }
+        }
+
+
+
+
+    } catch (error) {
+        // Si une erreur se produit, renvoyer une réponse d'erreur
+        console.error(error);
         return res.status(500).json({
             success: false,
             message: "Erreur interne du serveur",
